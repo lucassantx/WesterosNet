@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>WesterosNet — Otimização de Rede</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── DARK THEME (default) ── */
+:root,
+[data-theme="dark"] {
+  --navy:        #0a0e1a;
+  --panel:       rgba(13,20,40,0.92);
+  --border:      rgba(0,200,255,0.18);
+  --border2:     rgba(0,200,255,0.08);
+  --cyan:        #00c8ff;
+  --cyan-dim:    rgba(0,200,255,0.45);
+  --accent:      #ff7c2a;
+  --text:        #cdd8f0;
+  --text-dim:    #5a7090;
+  --text-bright: #e8f4ff;
+  --bg-body:     #0a0e1a;
+  --bg-header:   rgba(8,13,26,0.97);
+  --bg-footer:   rgba(8,13,26,0.97);
+  --bg-footer-hd:rgba(0,200,255,0.06);
+  --bg-chip:     rgba(0,20,40,0.6);
+  --bg-chip-hov: rgba(0,200,255,0.07);
+  --dot-color:   rgba(0,200,255,0.18);
+  --grid-color:  rgba(0,200,255,0.04);
+  --cost-val:    var(--cyan);
+  --cost-shadow: 0 0 20px rgba(0,200,255,0.5);
+  --stat-shadow: 0 0 10px rgba(0,200,255,0.4);
+  --chip-border-top: var(--cyan);
+  --chip-disc-top:   rgba(80,110,160,0.4);
+  --toggle-bg:   rgba(0,200,255,0.1);
+  --mono: 'Share Tech Mono', monospace;
+  --ui:   'Rajdhani', sans-serif;
+}
+
+/* ── LIGHT THEME ── */
+[data-theme="light"] {
+  --navy:        #f0f4ff;
+  --panel:       rgba(255,255,255,0.95);
+  --border:      rgba(30,80,200,0.18);
+  --border2:     rgba(30,80,200,0.08);
+  --cyan:        #1a4fc8;
+  --cyan-dim:    rgba(30,80,200,0.6);
+  --accent:      #d95a00;
+  --text:        #1a2040;
+  --text-dim:    #6070a0;
+  --text-bright: #0a1030;
+  --bg-body:     #f0f4ff;
+  --bg-header:   rgba(255,255,255,0.97);
+  --bg-footer:   rgba(255,255,255,0.98);
+  --bg-footer-hd:rgba(30,80,200,0.06);
+  --bg-chip:     rgba(235,240,255,0.9);
+  --bg-chip-hov: rgba(200,215,255,0.7);
+  --dot-color:   rgba(30,80,200,0.12);
+  --grid-color:  rgba(30,80,200,0.06);
+  --cost-val:    #1a3a9c;
+  --cost-shadow: none;
+  --stat-shadow: none;
+  --chip-border-top: #1a4fc8;
+  --chip-disc-top:   rgba(100,120,180,0.4);
+  --toggle-bg:   rgba(30,80,200,0.1);
+}
+
+html, body {
+  height: 100%; margin: 0;
+  background: var(--bg-body);
+  font-family: var(--ui);
+  overflow: hidden;
+  color: var(--text);
+  transition: background 0.3s, color 0.3s;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: radial-gradient(circle, var(--dot-color) 1px, transparent 1px);
+  background-size: 36px 36px;
+  pointer-events: none;
+  z-index: 0;
+  transition: background-image 0.3s;
+}
+
+[data-theme="dark"] body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(5,8,18,0.75) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── HEADER ── */
+header {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 56px;
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 22px;
+  z-index: 30;
+  backdrop-filter: blur(8px);
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.logo { display: flex; align-items: center; gap: 12px; }
+
+.logo-icon {
+  width: 36px; height: 36px; border-radius: 6px;
+  background: linear-gradient(135deg, rgba(0,200,255,0.2), rgba(0,200,255,0.05));
+  border: 1px solid var(--border);
+  display: grid; place-items: center;
+  font-size: 20px; line-height: 1;
+}
+
+[data-theme="light"] .logo-icon {
+  background: linear-gradient(135deg, rgba(30,80,200,0.15), rgba(30,80,200,0.04));
+}
+
+.logo-text { display: flex; flex-direction: column; }
+.logo-name {
+  font-family: var(--ui); font-weight: 700; font-size: 18px;
+  color: var(--text-bright); letter-spacing: 1px; line-height: 1;
+}
+.logo-name span { color: var(--cyan); }
+.logo-sub {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--text-dim); letter-spacing: 2px;
+  text-transform: uppercase; margin-top: 2px;
+}
+
+.h-div { width: 1px; height: 28px; background: var(--border); }
+
+.badge {
+  font-family: var(--mono); font-size: 11px;
+  background: rgba(0,200,255,0.07);
+  color: var(--cyan-dim);
+  border: 1px solid var(--border);
+  padding: 4px 12px; border-radius: 3px;
+  letter-spacing: 1px; text-transform: uppercase;
+}
+[data-theme="light"] .badge {
+  background: rgba(30,80,200,0.07);
+}
+.badge-r {
+  background: rgba(0,200,255,0.15);
+  color: var(--cyan);
+  border-color: rgba(0,200,255,0.4);
+}
+[data-theme="light"] .badge-r {
+  background: rgba(30,80,200,0.12);
+  border-color: rgba(30,80,200,0.4);
+}
+
+/* ── THEME TOGGLE ── */
+.theme-toggle {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 8px;
+  background: var(--toggle-bg);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 12px;
+  cursor: pointer;
+  font-family: var(--mono); font-size: 11px;
+  color: var(--cyan);
+  letter-spacing: 1px;
+  transition: background 0.2s, border-color 0.2s;
+  user-select: none;
+}
+.theme-toggle:hover {
+  background: rgba(0,200,255,0.15);
+}
+[data-theme="light"] .theme-toggle:hover {
+  background: rgba(30,80,200,0.15);
+}
+.toggle-icon { font-size: 14px; }
+
+/* ── NETWORK ── */
+#mynetwork {
+  position: fixed;
+  top: 56px; left: 0; right: 0; bottom: 148px;
+  z-index: 1;
+  background: transparent;
+}
+
+.hex-overlay {
+  position: fixed;
+  top: 56px; left: 0; right: 0; bottom: 148px;
+  background-image:
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 0;
+  transition: background-image 0.3s;
+}
+
+/* ── LEFT PANEL ── */
+.float-cards {
+  position: fixed;
+  top: 70px; left: 16px;
+  z-index: 20;
+  display: flex; flex-direction: column; gap: 10px;
+  width: 200px;
+}
+
+.card-cost {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--cyan);
+  border-radius: 6px;
+  padding: 14px 18px;
+  backdrop-filter: blur(10px);
+  transition: background 0.3s, border-color 0.3s;
+}
+.card-cost-label {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--text-dim); letter-spacing: 2px;
+  text-transform: uppercase; margin-bottom: 8px;
+}
+.card-cost-val {
+  font-family: var(--mono); font-size: 42px;
+  color: var(--cost-val); font-weight: 400;
+  line-height: 1;
+  text-shadow: var(--cost-shadow);
+}
+.card-cost-unit {
+  font-family: var(--ui); font-size: 13px;
+  color: var(--text-dim); margin-top: 6px;
+}
+
+.card-stats {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 10px;
+  display: grid;
+  grid-template-columns: 1fr 1px 1fr 1px 1fr 1px 1fr;
+  align-items: center;
+  backdrop-filter: blur(10px);
+  transition: background 0.3s, border-color 0.3s;
+}
+.cs-item { text-align: center; }
+.cs-val {
+  font-family: var(--mono); font-size: 26px;
+  color: var(--cyan); display: block;
+  text-shadow: var(--stat-shadow);
+  line-height: 1;
+}
+.cs-val.dim { color: var(--text-dim); text-shadow: none; }
+.cs-lbl {
+  font-family: var(--ui); font-size: 12px;
+  color: var(--text-dim); margin-top: 4px; display: block;
+}
+.cs-div { width: 1px; height: 36px; background: var(--border); }
+
+.card-legend {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+  display: flex; flex-direction: column; gap: 9px;
+  backdrop-filter: blur(10px);
+  transition: background 0.3s, border-color 0.3s;
+}
+.card-legend-title {
+  font-family: var(--mono); font-size: 9px;
+  color: var(--text-dim); letter-spacing: 2px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border2);
+  padding-bottom: 6px; margin-bottom: 2px;
+}
+.leg { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text); font-weight: 500; }
+.leg-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: rgba(0,200,255,0.1); border: 2px solid var(--cyan);
+  flex-shrink: 0;
+}
+[data-theme="light"] .leg-dot { background: rgba(30,80,200,0.08); }
+.leg-line { width: 26px; height: 0; border-top: 2.5px solid var(--cyan); flex-shrink: 0; }
+.leg-dash { width: 26px; height: 0; border-top: 1.5px dashed var(--text-dim); flex-shrink: 0; }
+
+/* ── RIGHT PANEL ── */
+.side-events {
+  position: fixed;
+  top: 70px; right: 16px;
+  z-index: 20;
+  width: 220px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+  transition: background 0.3s, border-color 0.3s;
+}
+.side-events-header {
+  background: var(--bg-footer-hd);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 14px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.side-events-title {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--cyan); letter-spacing: 2px; text-transform: uppercase;
+}
+.side-events-count {
+  font-family: var(--mono); font-size: 10px;
+  background: rgba(0,200,255,0.15); color: var(--cyan);
+  padding: 2px 8px; border-radius: 20px;
+  border: 1px solid rgba(0,200,255,0.3);
+}
+[data-theme="light"] .side-events-count {
+  background: rgba(30,80,200,0.12);
+  border-color: rgba(30,80,200,0.3);
+}
+.events-list {
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+.events-list::-webkit-scrollbar { width: 3px; }
+.events-list::-webkit-scrollbar-thumb { background: var(--cyan-dim); border-radius: 2px; }
+.event-item {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border2);
+  cursor: default;
+  transition: background 0.1s;
+}
+.event-item:hover { background: rgba(0,200,255,0.05); }
+[data-theme="light"] .event-item:hover { background: rgba(30,80,200,0.05); }
+.event-item:last-child { border-bottom: none; }
+.event-dot {
+  display: inline-block; width: 7px; height: 7px;
+  border-radius: 50%; margin-right: 7px; vertical-align: middle;
+}
+.event-top { display: flex; align-items: center; margin-bottom: 3px; }
+.event-type { font-family: var(--ui); font-size: 14px; font-weight: 600; color: var(--text-bright); flex: 1; }
+.event-km { font-family: var(--mono); font-size: 12px; color: var(--accent); margin-left: auto; }
+.event-sub { font-family: var(--ui); font-size: 12px; color: var(--text-dim); padding-left: 14px; line-height: 1.4; }
+
+/* ── FOOTER ── */
+.footer-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 148px;
+  background: var(--bg-footer);
+  border-top: 1px solid var(--border);
+  z-index: 20;
+  display: flex; flex-direction: column;
+  backdrop-filter: blur(12px);
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.footer-bar-header {
+  background: var(--bg-footer-hd);
+  border-bottom: 1px solid var(--border);
+  padding: 7px 20px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.footer-bar-title {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--cyan); letter-spacing: 2px; text-transform: uppercase;
+}
+.footer-bar-meta { display: flex; align-items: center; gap: 16px; }
+.footer-bar-hint { font-family: var(--mono); font-size: 10px; color: var(--text-dim); letter-spacing: 1px; }
+
+.footer-tabs { display: flex; gap: 4px; }
+.ftab {
+  font-family: var(--mono); font-size: 10px;
+  padding: 3px 10px; border-radius: 3px; cursor: pointer;
+  border: 1px solid var(--border);
+  color: var(--text-dim); background: transparent;
+  transition: all 0.15s; letter-spacing: 1px;
+}
+.ftab.active, .ftab:hover {
+  background: rgba(0,200,255,0.12);
+  border-color: rgba(0,200,255,0.4);
+  color: var(--cyan);
+}
+[data-theme="light"] .ftab.active,
+[data-theme="light"] .ftab:hover {
+  background: rgba(30,80,200,0.1);
+  border-color: rgba(30,80,200,0.4);
+}
+
+.footer-scroll {
+  overflow-x: auto; overflow-y: hidden;
+  display: flex; align-items: center;
+  gap: 8px; padding: 10px 18px; flex: 1;
+}
+.footer-scroll::-webkit-scrollbar { height: 3px; }
+.footer-scroll::-webkit-scrollbar-thumb { background: var(--cyan-dim); border-radius: 2px; }
+
+.aresta-chip {
+  display: flex; flex-direction: column;
+  background: var(--bg-chip);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--chip-border-top);
+  border-radius: 5px;
+  padding: 8px 14px;
+  min-width: 170px; flex-shrink: 0;
+  cursor: default;
+  transition: background 0.12s, box-shadow 0.12s;
+  position: relative;
+}
+.aresta-chip:hover { background: var(--bg-chip-hov); }
+.aresta-chip.discarded { border-top-color: var(--chip-disc-top); opacity: 0.7; }
+
+.chip-num { font-family: var(--mono); font-size: 10px; color: var(--text-dim); letter-spacing: 1px; margin-bottom: 4px; }
+.chip-tag { position: absolute; top: 6px; right: 8px; font-family: var(--mono); font-size: 8px; color: var(--cyan-dim); letter-spacing: 1px; }
+.chip-tag.disc { color: var(--text-dim); }
+.chip-cities { font-family: var(--ui); font-size: 14px; font-weight: 500; color: var(--text-bright); line-height: 1.4; }
+.chip-arrow { color: var(--cyan-dim); font-style: normal; font-size: 12px; }
+.chip-km { font-family: var(--mono); font-size: 14px; color: var(--cyan); margin-top: 5px; }
+.chip-km.disc { color: var(--text-dim); }
+
+.attribution {
+  position: fixed; bottom: 152px; right: 16px;
+  font-family: var(--mono); font-size: 9px;
+  color: var(--text-dim); z-index: 10; letter-spacing: 1px;
+}
+
+/* vis.js overrides */
+.vis-network canvas { background: transparent !important; }
+div.vis-tooltip {
+  background: var(--panel) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+  font-family: var(--mono) !important;
+  font-size: 12px !important;
+  border-radius: 4px !important;
+  padding: 6px 12px !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4) !important;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🐉</div>
+    <div class="logo-text">
+      <div class="logo-name">Westeros<span>Net</span></div>
+      <div class="logo-sub">Network Optimization</div>
+    </div>
+  </div>
+  <div class="h-div"></div>
+  <span class="badge">Grafo Não-Direcionado Ponderado</span>
+  <span class="badge badge-r">Algoritmo de Kruskal — MST</span>
+  <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
+    <span id="toggleLabel">MODO CLARO</span>
+  </button>
+</header>
+
+<div class="hex-overlay"></div>
+
+{{GRAPH_BLOCK}}
+
+<!-- LEFT PANEL -->
+<div class="float-cards">
+  <div class="card-cost">
+    <div class="card-cost-label">Custo Total Mínimo</div>
+    <div class="card-cost-val">{{CUSTO_TOTAL}}</div>
+    <div class="card-cost-unit">km de cabo instalado</div>
+  </div>
+  <div class="card-stats">
+    <div class="cs-item">
+      <span class="cs-val">{{N_BAIRROS}}</span>
+      <span class="cs-lbl">Cidades</span>
+    </div>
+    <div class="cs-div"></div>
+    <div class="cs-item">
+      <span class="cs-val">{{N_CONEXOES}}</span>
+      <span class="cs-lbl">Arestas</span>
+    </div>
+    <div class="cs-div"></div>
+    <div class="cs-item">
+      <span class="cs-val">{{N_MST}}</span>
+      <span class="cs-lbl">Na MST</span>
+    </div>
+    <div class="cs-div"></div>
+    <div class="cs-item">
+      <span class="cs-val dim">{{N_DESCARTADAS}}</span>
+      <span class="cs-lbl">Descart.</span>
+    </div>
+  </div>
+  <div class="card-legend">
+    <div class="card-legend-title">Legenda</div>
+    <div class="leg"><div class="leg-dot"></div> Cidade (vértice)</div>
+    <div class="leg"><div class="leg-line"></div> Aresta na MST</div>
+    <div class="leg"><div class="leg-dash"></div> Aresta descartada</div>
+  </div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="side-events">
+  <div class="side-events-header">
+    <span class="side-events-title">MST — Conexões</span>
+    <span class="side-events-count">{{N_MST}}</span>
+  </div>
+  <div class="events-list" id="mstList"></div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer-bar">
+  <div class="footer-bar-header">
+    <span class="footer-bar-title">🐉 Todas as Arestas — Grafo Completo</span>
+    <div class="footer-bar-meta">
+      <div class="footer-tabs">
+        <button class="ftab active" onclick="renderFooter('all', this)">Todas ({{N_CONEXOES}})</button>
+        <button class="ftab" onclick="renderFooter('mst', this)">MST ({{N_MST}})</button>
+        <button class="ftab" onclick="renderFooter('disc', this)">Descartadas ({{N_DESCARTADAS}})</button>
+      </div>
+      <span class="footer-bar-hint">scroll →</span>
+    </div>
+  </div>
+  <div class="footer-scroll" id="footerScroll"></div>
+</div>
+
+<div class="attribution">WesterosNet · dados sintéticos · 2025</div>
+
+<!-- Dados injetados pelo main.py. type=application/json → linter não valida como JS -->
+<script type="application/json" id="dadosGrafo">{{TODAS_ARESTAS_JSON}}</script>
+
+<script>
+/* ── THEME TOGGLE ── */
+function toggleTheme() {
+  var html = document.documentElement;
+  var isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  document.getElementById('toggleLabel').textContent = isDark ? 'MODO ESCURO' : 'MODO CLARO';
+}
+
+/* ── FOOTER & SIDE LIST ── */
+(function () {
+  // Lê os dados do <script type="application/json"> — sem placeholder dentro de JS
+  var todasArestas = JSON.parse(document.getElementById('dadosGrafo').textContent);
+
+  var mstEdges  = todasArestas.filter(function (a) { return a.mst === true; });
+  var discEdges = todasArestas.filter(function (a) { return a.mst === false; });
+  var allEdges  = todasArestas.slice().sort(function (a, b) { return a.km - b.km; });
+
+  function renderFooter(mode, btn) {
+    if (btn) {
+      var tabs = document.querySelectorAll('.ftab');
+      for (var i = 0; i < tabs.length; i++) {
+        tabs[i].classList.remove('active');
+      }
+      btn.classList.add('active');
+    }
+
+    var list;
+    if (mode === 'mst')  { list = mstEdges;  }
+    else if (mode === 'disc') { list = discEdges; }
+    else { list = allEdges; }
+
+    var container = document.getElementById('footerScroll');
+    container.innerHTML = '';
+
+    for (var j = 0; j < list.length; j++) {
+      var a = list[j];
+      var chip = document.createElement('div');
+      chip.className = 'aresta-chip' + (a.mst ? '' : ' discarded');
+      var numStr = String(j + 1);
+      while (numStr.length < 2) { numStr = '0' + numStr; }
+      chip.innerHTML =
+        '<div class="chip-num">#' + numStr + '</div>' +
+        '<span class="chip-tag' + (a.mst ? '' : ' disc') + '">' + (a.mst ? 'MST' : '---') + '</span>' +
+        '<div class="chip-cities">' + a.de + '<br><em class="chip-arrow">&#8596;</em> ' + a.para + '</div>' +
+        '<div class="chip-km' + (a.mst ? '' : ' disc') + '">' + a.km.toFixed(1) + ' km</div>';
+      container.appendChild(chip);
+    }
+  }
+
+  // Expõe para os botões inline do HTML
+  window.renderFooter = renderFooter;
+
+  function renderSideList() {
+    var list = document.getElementById('mstList');
+    for (var i = 0; i < mstEdges.length; i++) {
+      var a = mstEdges[i];
+      var item = document.createElement('div');
+      item.className = 'event-item';
+      var shortName = a.de.replace('The ', '');
+      item.innerHTML =
+        '<div class="event-top">' +
+          '<span class="event-dot" style="background:#00c8ff"></span>' +
+          '<span class="event-type">' + shortName + '</span>' +
+          '<span class="event-km">' + a.km.toFixed(1) + ' km</span>' +
+        '</div>' +
+        '<div class="event-sub">&#8596; ' + a.para + '</div>';
+      list.appendChild(item);
+    }
+  }
+
+  function init() {
+    var footer = document.getElementById('footerScroll');
+    var side   = document.getElementById('mstList');
+    if (!footer || !side) {
+      setTimeout(init, 100);
+      return;
+    }
+    renderFooter('all', null);
+    renderSideList();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+}());
+</script>
+
+</body>
+</html>

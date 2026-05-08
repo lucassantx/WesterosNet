@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>WesterosNet — Otimização de Rede</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── DARK THEME (default) ── */
+:root,
+[data-theme="dark"] {
+  --navy:        #0a0e1a;
+  --panel:       rgba(13,20,40,0.92);
+  --border:      rgba(0,200,255,0.18);
+  --border2:     rgba(0,200,255,0.08);
+  --cyan:        #00c8ff;
+  --cyan-dim:    rgba(0,200,255,0.45);
+  --accent:      #ff7c2a;
+  --text:        #cdd8f0;
+  --text-dim:    #5a7090;
+  --text-bright: #e8f4ff;
+  --bg-body:     #0a0e1a;
+  --bg-header:   rgba(8,13,26,0.97);
+  --bg-footer:   rgba(8,13,26,0.97);
+  --bg-footer-hd:rgba(0,200,255,0.06);
+  --bg-chip:     rgba(0,20,40,0.6);
+  --bg-chip-hov: rgba(0,200,255,0.07);
+  --dot-color:   rgba(0,200,255,0.18);
+  --grid-color:  rgba(0,200,255,0.04);
+  --cost-val:    var(--cyan);
+  --cost-shadow: 0 0 20px rgba(0,200,255,0.5);
+  --stat-shadow: 0 0 10px rgba(0,200,255,0.4);
+  --chip-border-top: var(--cyan);
+  --chip-disc-top:   rgba(80,110,160,0.4);
+  --toggle-bg:   rgba(0,200,255,0.1);
+  --mono: 'Share Tech Mono', monospace;
+  --ui:   'Rajdhani', sans-serif;
+}
+
+/* ── LIGHT THEME ── */
+[data-theme="light"] {
+  --navy:        #f0f4ff;
+  --panel:       rgba(255,255,255,0.95);
+  --border:      rgba(30,80,200,0.18);
+  --border2:     rgba(30,80,200,0.08);
+  --cyan:        #1a4fc8;
+  --cyan-dim:    rgba(30,80,200,0.6);
+  --accent:      #d95a00;
+  --text:        #1a2040;
+  --text-dim:    #6070a0;
+  --text-bright: #0a1030;
+  --bg-body:     #f0f4ff;
+  --bg-header:   rgba(255,255,255,0.97);
+  --bg-footer:   rgba(255,255,255,0.98);
+  --bg-footer-hd:rgba(30,80,200,0.06);
+  --bg-chip:     rgba(235,240,255,0.9);
+  --bg-chip-hov: rgba(200,215,255,0.7);
+  --dot-color:   rgba(30,80,200,0.12);
+  --grid-color:  rgba(30,80,200,0.06);
+  --cost-val:    #1a3a9c;
+  --cost-shadow: none;
+  --stat-shadow: none;
+  --chip-border-top: #1a4fc8;
+  --chip-disc-top:   rgba(100,120,180,0.4);
+  --toggle-bg:   rgba(30,80,200,0.1);
+}
+
+html, body {
+  height: 100%; margin: 0;
+  background: var(--bg-body);
+  font-family: var(--ui);
+  overflow: hidden;
+  color: var(--text);
+  transition: background 0.3s, color 0.3s;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: radial-gradient(circle, var(--dot-color) 1px, transparent 1px);
+  background-size: 36px 36px;
+  pointer-events: none;
+  z-index: 0;
+  transition: background-image 0.3s;
+}
+
+[data-theme="dark"] body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(5,8,18,0.75) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── HEADER ── */
+header {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 56px;
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 22px;
+  z-index: 30;
+  backdrop-filter: blur(8px);
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.logo { display: flex; align-items: center; gap: 12px; }
+
+.logo-icon {
+  width: 36px; height: 36px; border-radius: 6px;
+  background: linear-gradient(135deg, rgba(0,200,255,0.2), rgba(0,200,255,0.05));
+  border: 1px solid var(--border);
+  display: grid; place-items: center;
+  font-size: 20px; line-height: 1;
+}
+
+[data-theme="light"] .logo-icon {
+  background: linear-gradient(135deg, rgba(30,80,200,0.15), rgba(30,80,200,0.04));
+}
+
+.logo-text { display: flex; flex-direction: column; }
+.logo-name {
+  font-family: var(--ui); font-weight: 700; font-size: 18px;
+  color: var(--text-bright); letter-spacing: 1px; line-height: 1;
+}
+.logo-name span { color: var(--cyan); }
+.logo-sub {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--text-dim); letter-spacing: 2px;
+  text-transform: uppercase; margin-top: 2px;
+}
+
+.h-div { width: 1px; height: 28px; background: var(--border); }
+
+.badge {
+  font-family: var(--mono); font-size: 11px;
+  background: rgba(0,200,255,0.07);
+  color: var(--cyan-dim);
+  border: 1px solid var(--border);
+  padding: 4px 12px; border-radius: 3px;
+  letter-spacing: 1px; text-transform: uppercase;
+}
+[data-theme="light"] .badge {
+  background: rgba(30,80,200,0.07);
+}
+.badge-r {
+  background: rgba(0,200,255,0.15);
+  color: var(--cyan);
+  border-color: rgba(0,200,255,0.4);
+}
+[data-theme="light"] .badge-r {
+  background: rgba(30,80,200,0.12);
+  border-color: rgba(30,80,200,0.4);
+}
+
+/* ── THEME TOGGLE ── */
+.theme-toggle {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 8px;
+  background: var(--toggle-bg);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 12px;
+  cursor: pointer;
+  font-family: var(--mono); font-size: 11px;
+  color: var(--cyan);
+  letter-spacing: 1px;
+  transition: background 0.2s, border-color 0.2s;
+  user-select: none;
+}
+.theme-toggle:hover {
+  background: rgba(0,200,255,0.15);
+}
+[data-theme="light"] .theme-toggle:hover {
+  background: rgba(30,80,200,0.15);
+}
+.toggle-icon { font-size: 14px; }
+
+/* ── NETWORK ── */
+#mynetwork {
+  position: fixed;
+  top: 56px; left: 0; right: 0; bottom: 148px;
+  z-index: 1;
+  background: transparent;
+}
+
+.hex-overlay {
+  position: fixed;
+  top: 56px; left: 0; right: 0; bottom: 148px;
+  background-image:
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 0;
+  transition: background-image 0.3s;
+}
+
+/* ── LEFT PANEL ── */
+.float-cards {
+  position: fixed;
+  top: 70px; left: 16px;
+  z-index: 20;
+  display: flex; flex-direction: column; gap: 10px;
+  width: 200px;
+}
+
+.card-cost {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--cyan);
+  border-radius: 6px;
+  padding: 14px 18px;
+  backdrop-filter: blur(10px);
+  transition: background 0.3s, border-color 0.3s;
+}
+.card-cost-label {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--text-dim); letter-spacing: 2px;
+  text-transform: uppercase; margin-bottom: 8px;
+}
+.card-cost-val {
+  font-family: var(--mono); font-size: 42px;
+  color: var(--cost-val); font-weight: 400;
+  line-height: 1;
+  text-shadow: var(--cost-shadow);
+}
+.card-cost-unit {
+  font-family: var(--ui); font-size: 13px;
+  color: var(--text-dim); margin-top: 6px;
+}
+
+.card-stats {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 10px;
+  display: grid;
+  grid-template-columns: 1fr 1px 1fr 1px 1fr 1px 1fr;
+  align-items: center;
+  backdrop-filter: blur(10px);
+  transition: background 0.3s, border-color 0.3s;
+}
+.cs-item { text-align: center; }
+.cs-val {
+  font-family: var(--mono); font-size: 26px;
+  color: var(--cyan); display: block;
+  text-shadow: var(--stat-shadow);
+  line-height: 1;
+}
+.cs-val.dim { color: var(--text-dim); text-shadow: none; }
+.cs-lbl {
+  font-family: var(--ui); font-size: 12px;
+  color: var(--text-dim); margin-top: 4px; display: block;
+}
+.cs-div { width: 1px; height: 36px; background: var(--border); }
+
+.card-legend {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+  display: flex; flex-direction: column; gap: 9px;
+  backdrop-filter: blur(10px);
+  transition: background 0.3s, border-color 0.3s;
+}
+.card-legend-title {
+  font-family: var(--mono); font-size: 9px;
+  color: var(--text-dim); letter-spacing: 2px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border2);
+  padding-bottom: 6px; margin-bottom: 2px;
+}
+.leg { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text); font-weight: 500; }
+.leg-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: rgba(0,200,255,0.1); border: 2px solid var(--cyan);
+  flex-shrink: 0;
+}
+[data-theme="light"] .leg-dot { background: rgba(30,80,200,0.08); }
+.leg-line { width: 26px; height: 0; border-top: 2.5px solid var(--cyan); flex-shrink: 0; }
+.leg-dash { width: 26px; height: 0; border-top: 1.5px dashed var(--text-dim); flex-shrink: 0; }
+
+/* ── RIGHT PANEL ── */
+.side-events {
+  position: fixed;
+  top: 70px; right: 16px;
+  z-index: 20;
+  width: 220px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+  transition: background 0.3s, border-color 0.3s;
+}
+.side-events-header {
+  background: var(--bg-footer-hd);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 14px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.side-events-title {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--cyan); letter-spacing: 2px; text-transform: uppercase;
+}
+.side-events-count {
+  font-family: var(--mono); font-size: 10px;
+  background: rgba(0,200,255,0.15); color: var(--cyan);
+  padding: 2px 8px; border-radius: 20px;
+  border: 1px solid rgba(0,200,255,0.3);
+}
+[data-theme="light"] .side-events-count {
+  background: rgba(30,80,200,0.12);
+  border-color: rgba(30,80,200,0.3);
+}
+.events-list {
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+.events-list::-webkit-scrollbar { width: 3px; }
+.events-list::-webkit-scrollbar-thumb { background: var(--cyan-dim); border-radius: 2px; }
+.event-item {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border2);
+  cursor: default;
+  transition: background 0.1s;
+}
+.event-item:hover { background: rgba(0,200,255,0.05); }
+[data-theme="light"] .event-item:hover { background: rgba(30,80,200,0.05); }
+.event-item:last-child { border-bottom: none; }
+.event-dot {
+  display: inline-block; width: 7px; height: 7px;
+  border-radius: 50%; margin-right: 7px; vertical-align: middle;
+}
+.event-top { display: flex; align-items: center; margin-bottom: 3px; }
+.event-type { font-family: var(--ui); font-size: 14px; font-weight: 600; color: var(--text-bright); flex: 1; }
+.event-km { font-family: var(--mono); font-size: 12px; color: var(--accent); margin-left: auto; }
+.event-sub { font-family: var(--ui); font-size: 12px; color: var(--text-dim); padding-left: 14px; line-height: 1.4; }
+
+/* ── FOOTER ── */
+.footer-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 148px;
+  background: var(--bg-footer);
+  border-top: 1px solid var(--border);
+  z-index: 20;
+  display: flex; flex-direction: column;
+  backdrop-filter: blur(12px);
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.footer-bar-header {
+  background: var(--bg-footer-hd);
+  border-bottom: 1px solid var(--border);
+  padding: 7px 20px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.footer-bar-title {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--cyan); letter-spacing: 2px; text-transform: uppercase;
+}
+.footer-bar-meta { display: flex; align-items: center; gap: 16px; }
+.footer-bar-hint { font-family: var(--mono); font-size: 10px; color: var(--text-dim); letter-spacing: 1px; }
+
+.footer-tabs { display: flex; gap: 4px; }
+.ftab {
+  font-family: var(--mono); font-size: 10px;
+  padding: 3px 10px; border-radius: 3px; cursor: pointer;
+  border: 1px solid var(--border);
+  color: var(--text-dim); background: transparent;
+  transition: all 0.15s; letter-spacing: 1px;
+}
+.ftab.active, .ftab:hover {
+  background: rgba(0,200,255,0.12);
+  border-color: rgba(0,200,255,0.4);
+  color: var(--cyan);
+}
+[data-theme="light"] .ftab.active,
+[data-theme="light"] .ftab:hover {
+  background: rgba(30,80,200,0.1);
+  border-color: rgba(30,80,200,0.4);
+}
+
+.footer-scroll {
+  overflow-x: auto; overflow-y: hidden;
+  display: flex; align-items: center;
+  gap: 8px; padding: 10px 18px; flex: 1;
+}
+.footer-scroll::-webkit-scrollbar { height: 3px; }
+.footer-scroll::-webkit-scrollbar-thumb { background: var(--cyan-dim); border-radius: 2px; }
+
+.aresta-chip {
+  display: flex; flex-direction: column;
+  background: var(--bg-chip);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--chip-border-top);
+  border-radius: 5px;
+  padding: 8px 14px;
+  min-width: 170px; flex-shrink: 0;
+  cursor: default;
+  transition: background 0.12s, box-shadow 0.12s;
+  position: relative;
+}
+.aresta-chip:hover { background: var(--bg-chip-hov); }
+.aresta-chip.discarded { border-top-color: var(--chip-disc-top); opacity: 0.7; }
+
+.chip-num { font-family: var(--mono); font-size: 10px; color: var(--text-dim); letter-spacing: 1px; margin-bottom: 4px; }
+.chip-tag { position: absolute; top: 6px; right: 8px; font-family: var(--mono); font-size: 8px; color: var(--cyan-dim); letter-spacing: 1px; }
+.chip-tag.disc { color: var(--text-dim); }
+.chip-cities { font-family: var(--ui); font-size: 14px; font-weight: 500; color: var(--text-bright); line-height: 1.4; }
+.chip-arrow { color: var(--cyan-dim); font-style: normal; font-size: 12px; }
+.chip-km { font-family: var(--mono); font-size: 14px; color: var(--cyan); margin-top: 5px; }
+.chip-km.disc { color: var(--text-dim); }
+
+.attribution {
+  position: fixed; bottom: 152px; right: 16px;
+  font-family: var(--mono); font-size: 9px;
+  color: var(--text-dim); z-index: 10; letter-spacing: 1px;
+}
+
+/* vis.js overrides */
+.vis-network canvas { background: transparent !important; }
+div.vis-tooltip {
+  background: var(--panel) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+  font-family: var(--mono) !important;
+  font-size: 12px !important;
+  border-radius: 4px !important;
+  padding: 6px 12px !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4) !important;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🐉</div>
+    <div class="logo-text">
+      <div class="logo-name">Westeros<span>Net</span></div>
+      <div class="logo-sub">Network Optimization</div>
+    </div>
+  </div>
+  <div class="h-div"></div>
+  <span class="badge">Grafo Não-Direcionado Ponderado</span>
+  <span class="badge badge-r">Algoritmo de Kruskal — MST</span>
+  <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
+    <span id="toggleLabel">MODO CLARO</span>
+  </button>
+</header>
+
+<div class="hex-overlay"></div>
+
+<div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"borderWidth": 2, "color": {"background": "rgba(0,200,255,0.08)", "border": "#00c8ff", "highlight": {"background": "rgba(0,200,255,0.2)", "border": "#00e5ff"}}, "font": {"color": "#cdd8f0", "face": "Rajdhani, sans-serif", "size": 15}, "id": "The North", "label": "The North", "shadow": {"color": "rgba(0,200,255,0.2)", "enabled": true, "size": 12}, "shape": "dot", "size": 20}, {"borderWidth": 2, "color": {"background": "rgba(0,200,255,0.08)", "border": "#00c8ff", "highlight": {"background": "rgba(0,200,255,0.2)", "border": "#00e5ff"}}, "font": {"color": "#cdd8f0", "face": "Rajdhani, sans-serif", "size": 15}, "id": "The Vale of Arryn", "label": "The Vale of Arryn", "shadow": {"color": "rgba(0,200,255,0.2)", "enabled": true, "size": 12}, "shape": "dot", "size": 20}, {"borderWidth": 2, "color": {"background": "rgba(0,200,255,0.08)", "border": "#00c8ff", "highlight": {"background": "rgba(0,200,255,0.2)", "border": "#00e5ff"}}, "font": {"color": "#cdd8f0", "face": "Rajdhani, sans-serif", "size": 15}, "id": "The Riverlands", "label": "The Riverlands", "shadow": {"color": "rgba(0,200,255,0.2)", "enabled": true, "size": 12}, "shape": "dot", "size": 20}, {"borderWidth": 2, "color": {"background": "rgba(0,200,255,0.08)", "border": "#00c8ff", "highlight": {"background": "rgba(0,200,255,0.2)", "border": "#00e5ff"}}, "font": {"color": "#cdd8f0", "face": "Rajdhani, sans-serif", "size": 15}, "id": "The Westerlands", "label": "The Westerlands", "shadow": {"color": "rgba(0,200,255,0.2)", "enabled": true, "size": 12}, "shape": "dot", "size": 20}, {"borderWidth": 2, "color": {"background": "rgba(0,200,255,0.08)", "border": "#00c8ff", "highlight": {"background": "rgba(0,200,255,0.2)", "border": "#00e5ff"}}, "font": {"color": "#cdd8f0", "face": "Rajdhani, sans-serif", "size": 15}, "id": "The Crownlands", "label": "The Crownlands", "shadow": {"color": "rgba(0,200,255,0.2)", "enabled": true, "size": 12}, "shape": "dot", "size": 20}, {"borderWidth": 2, "color": {"background": "rgba(0,200,255,0.08)", "border": "#00c8ff", "highlight": {"background": "rgba(0,200,255,0.2)", "border": "#00e5ff"}}, "font": {"color": "#cdd8f0", "face": "Rajdhani, sans-serif", "size": 15}, "id": "The Reach", "label": "The Reach", "shadow": {"color": "rgba(0,200,255,0.2)", "enabled": true, "size": 12}, "shape": "dot", "size": 20}, {"borderWidth": 2, "color": {"background": "rgba(0,200,255,0.08)", "border": "#00c8ff", "highlight": {"background": "rgba(0,200,255,0.2)", "border": "#00e5ff"}}, "font": {"color": "#cdd8f0", "face": "Rajdhani, sans-serif", "size": 15}, "id": "The Stormlands", "label": "The Stormlands", "shadow": {"color": "rgba(0,200,255,0.2)", "enabled": true, "size": 12}, "shape": "dot", "size": 20}, {"borderWidth": 2, "color": {"background": "rgba(0,200,255,0.08)", "border": "#00c8ff", "highlight": {"background": "rgba(0,200,255,0.2)", "border": "#00e5ff"}}, "font": {"color": "#cdd8f0", "face": "Rajdhani, sans-serif", "size": 15}, "id": "Dorne", "label": "Dorne", "shadow": {"color": "rgba(0,200,255,0.2)", "enabled": true, "size": 12}, "shape": "dot", "size": 20}, {"borderWidth": 2, "color": {"background": "rgba(0,200,255,0.08)", "border": "#00c8ff", "highlight": {"background": "rgba(0,200,255,0.2)", "border": "#00e5ff"}}, "font": {"color": "#cdd8f0", "face": "Rajdhani, sans-serif", "size": 15}, "id": "The Iron Islands", "label": "The Iron Islands", "shadow": {"color": "rgba(0,200,255,0.2)", "enabled": true, "size": 12}, "shape": "dot", "size": 20}, {"borderWidth": 2, "color": {"background": "rgba(0,200,255,0.08)", "border": "#00c8ff", "highlight": {"background": "rgba(0,200,255,0.2)", "border": "#00e5ff"}}, "font": {"color": "#cdd8f0", "face": "Rajdhani, sans-serif", "size": 15}, "id": "Winterfell", "label": "Winterfell", "shadow": {"color": "rgba(0,200,255,0.2)", "enabled": true, "size": 12}, "shape": "dot", "size": 20}, {"borderWidth": 2, "color": {"background": "rgba(0,200,255,0.08)", "border": "#00c8ff", "highlight": {"background": "rgba(0,200,255,0.2)", "border": "#00e5ff"}}, "font": {"color": "#cdd8f0", "face": "Rajdhani, sans-serif", "size": 15}, "id": "King\u0027s Landing", "label": "King\u0027s Landing", "shadow": {"color": "rgba(0,200,255,0.2)", "enabled": true, "size": 12}, "shape": "dot", "size": 20}, {"borderWidth": 2, "color": {"background": "rgba(0,200,255,0.08)", "border": "#00c8ff", "highlight": {"background": "rgba(0,200,255,0.2)", "border": "#00e5ff"}}, "font": {"color": "#cdd8f0", "face": "Rajdhani, sans-serif", "size": 15}, "id": "Casterly Rock", "label": "Casterly Rock", "shadow": {"color": "rgba(0,200,255,0.2)", "enabled": true, "size": 12}, "shape": "dot", "size": 20}, {"borderWidth": 2, "color": {"background": "rgba(0,200,255,0.08)", "border": "#00c8ff", "highlight": {"background": "rgba(0,200,255,0.2)", "border": "#00e5ff"}}, "font": {"color": "#cdd8f0", "face": "Rajdhani, sans-serif", "size": 15}, "id": "Highgarden", "label": "Highgarden", "shadow": {"color": "rgba(0,200,255,0.2)", "enabled": true, "size": 12}, "shape": "dot", "size": 20}, {"borderWidth": 2, "color": {"background": "rgba(0,200,255,0.08)", "border": "#00c8ff", "highlight": {"background": "rgba(0,200,255,0.2)", "border": "#00e5ff"}}, "font": {"color": "#cdd8f0", "face": "Rajdhani, sans-serif", "size": 15}, "id": "The Eyrie", "label": "The Eyrie", "shadow": {"color": "rgba(0,200,255,0.2)", "enabled": true, "size": 12}, "shape": "dot", "size": 20}, {"borderWidth": 2, "color": {"background": "rgba(0,200,255,0.08)", "border": "#00c8ff", "highlight": {"background": "rgba(0,200,255,0.2)", "border": "#00e5ff"}}, "font": {"color": "#cdd8f0", "face": "Rajdhani, sans-serif", "size": 15}, "id": "Riverrun", "label": "Riverrun", "shadow": {"color": "rgba(0,200,255,0.2)", "enabled": true, "size": 12}, "shape": "dot", "size": 20}, {"borderWidth": 2, "color": {"background": "rgba(0,200,255,0.08)", "border": "#00c8ff", "highlight": {"background": "rgba(0,200,255,0.2)", "border": "#00e5ff"}}, "font": {"color": "#cdd8f0", "face": "Rajdhani, sans-serif", "size": 15}, "id": "Storm\u0027s End", "label": "Storm\u0027s End", "shadow": {"color": "rgba(0,200,255,0.2)", "enabled": true, "size": 12}, "shape": "dot", "size": 20}, {"borderWidth": 2, "color": {"background": "rgba(0,200,255,0.08)", "border": "#00c8ff", "highlight": {"background": "rgba(0,200,255,0.2)", "border": "#00e5ff"}}, "font": {"color": "#cdd8f0", "face": "Rajdhani, sans-serif", "size": 15}, "id": "Sunspear", "label": "Sunspear", "shadow": {"color": "rgba(0,200,255,0.2)", "enabled": true, "size": 12}, "shape": "dot", "size": 20}, {"borderWidth": 2, "color": {"background": "rgba(0,200,255,0.08)", "border": "#00c8ff", "highlight": {"background": "rgba(0,200,255,0.2)", "border": "#00e5ff"}}, "font": {"color": "#cdd8f0", "face": "Rajdhani, sans-serif", "size": 15}, "id": "Harrenhal", "label": "Harrenhal", "shadow": {"color": "rgba(0,200,255,0.2)", "enabled": true, "size": 12}, "shape": "dot", "size": 20}, {"borderWidth": 2, "color": {"background": "rgba(0,200,255,0.08)", "border": "#00c8ff", "highlight": {"background": "rgba(0,200,255,0.2)", "border": "#00e5ff"}}, "font": {"color": "#cdd8f0", "face": "Rajdhani, sans-serif", "size": 15}, "id": "The Wall", "label": "The Wall", "shadow": {"color": "rgba(0,200,255,0.2)", "enabled": true, "size": 12}, "shape": "dot", "size": 20}]);
+                  edges = new vis.DataSet([{"color": {"color": "#00c8ff"}, "dashes": false, "font": {"color": "#00c8ff", "face": "Share Tech Mono, monospace", "size": 12}, "from": "The North", "label": "2.4", "title": "[MST] The North \u2194 Winterfell: 2.4 km", "to": "Winterfell", "width": 3}, {"color": {"color": "rgba(80,120,180,0.35)"}, "dashes": true, "font": {"color": "rgba(80,120,180,0.5)", "face": "Share Tech Mono, monospace", "size": 11}, "from": "The North", "label": "5.8", "title": "The North \u2194 The Wall: 5.8 km", "to": "The Wall", "width": 1}, {"color": {"color": "rgba(80,120,180,0.35)"}, "dashes": true, "font": {"color": "rgba(80,120,180,0.5)", "face": "Share Tech Mono, monospace", "size": 11}, "from": "The North", "label": "6.1", "title": "The North \u2194 The Riverlands: 6.1 km", "to": "The Riverlands", "width": 1}, {"color": {"color": "rgba(80,120,180,0.35)"}, "dashes": true, "font": {"color": "rgba(80,120,180,0.5)", "face": "Share Tech Mono, monospace", "size": 11}, "from": "The North", "label": "7.0", "title": "The North \u2194 The Iron Islands: 7.0 km", "to": "The Iron Islands", "width": 1}, {"color": {"color": "rgba(80,120,180,0.35)"}, "dashes": true, "font": {"color": "rgba(80,120,180,0.5)", "face": "Share Tech Mono, monospace", "size": 11}, "from": "The Vale of Arryn", "label": "5.2", "title": "The Vale of Arryn \u2194 The Crownlands: 5.2 km", "to": "The Crownlands", "width": 1}, {"color": {"color": "rgba(80,120,180,0.35)"}, "dashes": true, "font": {"color": "rgba(80,120,180,0.5)", "face": "Share Tech Mono, monospace", "size": 11}, "from": "The Vale of Arryn", "label": "4.4", "title": "The Vale of Arryn \u2194 King\u0027s Landing: 4.4 km", "to": "King\u0027s Landing", "width": 1}, {"color": {"color": "#00c8ff"}, "dashes": false, "font": {"color": "#00c8ff", "face": "Share Tech Mono, monospace", "size": 12}, "from": "The Vale of Arryn", "label": "2.1", "title": "[MST] The Vale of Arryn \u2194 The Eyrie: 2.1 km", "to": "The Eyrie", "width": 3}, {"color": {"color": "rgba(80,120,180,0.35)"}, "dashes": true, "font": {"color": "rgba(80,120,180,0.5)", "face": "Share Tech Mono, monospace", "size": 11}, "from": "The Vale of Arryn", "label": "4.7", "title": "The Vale of Arryn \u2194 The Riverlands: 4.7 km", "to": "The Riverlands", "width": 1}, {"color": {"color": "#00c8ff"}, "dashes": false, "font": {"color": "#00c8ff", "face": "Share Tech Mono, monospace", "size": 12}, "from": "The Riverlands", "label": "4.5", "title": "[MST] The Riverlands \u2194 Winterfell: 4.5 km", "to": "Winterfell", "width": 3}, {"color": {"color": "#00c8ff"}, "dashes": false, "font": {"color": "#00c8ff", "face": "Share Tech Mono, monospace", "size": 12}, "from": "The Riverlands", "label": "2.8", "title": "[MST] The Riverlands \u2194 Harrenhal: 2.8 km", "to": "Harrenhal", "width": 3}, {"color": {"color": "#00c8ff"}, "dashes": false, "font": {"color": "#00c8ff", "face": "Share Tech Mono, monospace", "size": 12}, "from": "The Riverlands", "label": "3.0", "title": "[MST] The Riverlands \u2194 Riverrun: 3.0 km", "to": "Riverrun", "width": 3}, {"color": {"color": "rgba(80,120,180,0.35)"}, "dashes": true, "font": {"color": "rgba(80,120,180,0.5)", "face": "Share Tech Mono, monospace", "size": 11}, "from": "The Riverlands", "label": "4.2", "title": "The Riverlands \u2194 The Crownlands: 4.2 km", "to": "The Crownlands", "width": 1}, {"color": {"color": "rgba(80,120,180,0.35)"}, "dashes": true, "font": {"color": "rgba(80,120,180,0.5)", "face": "Share Tech Mono, monospace", "size": 11}, "from": "The Riverlands", "label": "5.6", "title": "The Riverlands \u2194 The Westerlands: 5.6 km", "to": "The Westerlands", "width": 1}, {"color": {"color": "#00c8ff"}, "dashes": false, "font": {"color": "#00c8ff", "face": "Share Tech Mono, monospace", "size": 12}, "from": "The Westerlands", "label": "2.6", "title": "[MST] The Westerlands \u2194 Riverrun: 2.6 km", "to": "Riverrun", "width": 3}, {"color": {"color": "#00c8ff"}, "dashes": false, "font": {"color": "#00c8ff", "face": "Share Tech Mono, monospace", "size": 12}, "from": "The Westerlands", "label": "1.9", "title": "[MST] The Westerlands \u2194 Casterly Rock: 1.9 km", "to": "Casterly Rock", "width": 3}, {"color": {"color": "#00c8ff"}, "dashes": false, "font": {"color": "#00c8ff", "face": "Share Tech Mono, monospace", "size": 12}, "from": "The Westerlands", "label": "6.3", "title": "[MST] The Westerlands \u2194 The Iron Islands: 6.3 km", "to": "The Iron Islands", "width": 3}, {"color": {"color": "#00c8ff"}, "dashes": false, "font": {"color": "#00c8ff", "face": "Share Tech Mono, monospace", "size": 12}, "from": "The Crownlands", "label": "2.9", "title": "[MST] The Crownlands \u2194 Harrenhal: 2.9 km", "to": "Harrenhal", "width": 3}, {"color": {"color": "#00c8ff"}, "dashes": false, "font": {"color": "#00c8ff", "face": "Share Tech Mono, monospace", "size": 12}, "from": "The Crownlands", "label": "1.5", "title": "[MST] The Crownlands \u2194 King\u0027s Landing: 1.5 km", "to": "King\u0027s Landing", "width": 3}, {"color": {"color": "rgba(80,120,180,0.35)"}, "dashes": true, "font": {"color": "rgba(80,120,180,0.5)", "face": "Share Tech Mono, monospace", "size": 11}, "from": "The Crownlands", "label": "4.8", "title": "The Crownlands \u2194 The Stormlands: 4.8 km", "to": "The Stormlands", "width": 1}, {"color": {"color": "rgba(80,120,180,0.35)"}, "dashes": true, "font": {"color": "rgba(80,120,180,0.5)", "face": "Share Tech Mono, monospace", "size": 11}, "from": "The Reach", "label": "5.9", "title": "The Reach \u2194 King\u0027s Landing: 5.9 km", "to": "King\u0027s Landing", "width": 1}, {"color": {"color": "#00c8ff"}, "dashes": false, "font": {"color": "#00c8ff", "face": "Share Tech Mono, monospace", "size": 12}, "from": "The Reach", "label": "2.3", "title": "[MST] The Reach \u2194 Highgarden: 2.3 km", "to": "Highgarden", "width": 3}, {"color": {"color": "#00c8ff"}, "dashes": false, "font": {"color": "#00c8ff", "face": "Share Tech Mono, monospace", "size": 12}, "from": "The Reach", "label": "4.1", "title": "[MST] The Reach \u2194 The Stormlands: 4.1 km", "to": "The Stormlands", "width": 3}, {"color": {"color": "rgba(80,120,180,0.35)"}, "dashes": true, "font": {"color": "rgba(80,120,180,0.5)", "face": "Share Tech Mono, monospace", "size": 11}, "from": "The Reach", "label": "6.7", "title": "The Reach \u2194 Dorne: 6.7 km", "to": "Dorne", "width": 1}, {"color": {"color": "rgba(80,120,180,0.35)"}, "dashes": true, "font": {"color": "rgba(80,120,180,0.5)", "face": "Share Tech Mono, monospace", "size": 11}, "from": "The Reach", "label": "7.2", "title": "The Reach \u2194 Sunspear: 7.2 km", "to": "Sunspear", "width": 1}, {"color": {"color": "#00c8ff"}, "dashes": false, "font": {"color": "#00c8ff", "face": "Share Tech Mono, monospace", "size": 12}, "from": "The Stormlands", "label": "3.6", "title": "[MST] The Stormlands \u2194 King\u0027s Landing: 3.6 km", "to": "King\u0027s Landing", "width": 3}, {"color": {"color": "#00c8ff"}, "dashes": false, "font": {"color": "#00c8ff", "face": "Share Tech Mono, monospace", "size": 12}, "from": "The Stormlands", "label": "2.7", "title": "[MST] The Stormlands \u2194 Storm\u0027s End: 2.7 km", "to": "Storm\u0027s End", "width": 3}, {"color": {"color": "rgba(80,120,180,0.35)"}, "dashes": true, "font": {"color": "rgba(80,120,180,0.5)", "face": "Share Tech Mono, monospace", "size": 11}, "from": "The Stormlands", "label": "5.3", "title": "The Stormlands \u2194 Dorne: 5.3 km", "to": "Dorne", "width": 1}, {"color": {"color": "rgba(80,120,180,0.35)"}, "dashes": true, "font": {"color": "rgba(80,120,180,0.5)", "face": "Share Tech Mono, monospace", "size": 11}, "from": "Dorne", "label": "5.5", "title": "Dorne \u2194 Highgarden: 5.5 km", "to": "Highgarden", "width": 1}, {"color": {"color": "#00c8ff"}, "dashes": false, "font": {"color": "#00c8ff", "face": "Share Tech Mono, monospace", "size": 12}, "from": "Dorne", "label": "4.6", "title": "[MST] Dorne \u2194 Storm\u0027s End: 4.6 km", "to": "Storm\u0027s End", "width": 3}, {"color": {"color": "#00c8ff"}, "dashes": false, "font": {"color": "#00c8ff", "face": "Share Tech Mono, monospace", "size": 12}, "from": "Dorne", "label": "2.0", "title": "[MST] Dorne \u2194 Sunspear: 2.0 km", "to": "Sunspear", "width": 3}, {"color": {"color": "rgba(80,120,180,0.35)"}, "dashes": true, "font": {"color": "rgba(80,120,180,0.5)", "face": "Share Tech Mono, monospace", "size": 11}, "from": "The Iron Islands", "label": "8.1", "title": "The Iron Islands \u2194 The Wall: 8.1 km", "to": "The Wall", "width": 1}, {"color": {"color": "#00c8ff"}, "dashes": false, "font": {"color": "#00c8ff", "face": "Share Tech Mono, monospace", "size": 12}, "from": "Winterfell", "label": "3.2", "title": "[MST] Winterfell \u2194 The Wall: 3.2 km", "to": "The Wall", "width": 3}, {"color": {"color": "rgba(80,120,180,0.35)"}, "dashes": true, "font": {"color": "rgba(80,120,180,0.5)", "face": "Share Tech Mono, monospace", "size": 11}, "from": "Winterfell", "label": "5.3", "title": "Winterfell \u2194 Harrenhal: 5.3 km", "to": "Harrenhal", "width": 1}, {"color": {"color": "rgba(80,120,180,0.35)"}, "dashes": true, "font": {"color": "rgba(80,120,180,0.5)", "face": "Share Tech Mono, monospace", "size": 11}, "from": "King\u0027s Landing", "label": "3.7", "title": "King\u0027s Landing \u2194 Harrenhal: 3.7 km", "to": "Harrenhal", "width": 1}, {"color": {"color": "rgba(80,120,180,0.35)"}, "dashes": true, "font": {"color": "rgba(80,120,180,0.5)", "face": "Share Tech Mono, monospace", "size": 11}, "from": "Casterly Rock", "label": "3.4", "title": "Casterly Rock \u2194 Riverrun: 3.4 km", "to": "Riverrun", "width": 1}, {"color": {"color": "rgba(80,120,180,0.35)"}, "dashes": true, "font": {"color": "rgba(80,120,180,0.5)", "face": "Share Tech Mono, monospace", "size": 11}, "from": "Casterly Rock", "label": "5.0", "title": "Casterly Rock \u2194 Highgarden: 5.0 km", "to": "Highgarden", "width": 1}, {"color": {"color": "#00c8ff"}, "dashes": false, "font": {"color": "#00c8ff", "face": "Share Tech Mono, monospace", "size": 12}, "from": "The Eyrie", "label": "3.9", "title": "[MST] The Eyrie \u2194 Harrenhal: 3.9 km", "to": "Harrenhal", "width": 3}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {"physics": {"barnesHut": {"gravitationalConstant": -9000, "centralGravity": 0.25, "springLength": 180, "springConstant": 0.035, "damping": 0.14}, "stabilization": {"iterations": 250}}, "interaction": {"hover": true, "tooltipDelay": 80}};
+
+                  
+
+
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+
+
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+
+<!-- LEFT PANEL -->
+<div class="float-cards">
+  <div class="card-cost">
+    <div class="card-cost-label">Custo Total Mínimo</div>
+    <div class="card-cost-val">56.4</div>
+    <div class="card-cost-unit">km de cabo instalado</div>
+  </div>
+  <div class="card-stats">
+    <div class="cs-item">
+      <span class="cs-val">19</span>
+      <span class="cs-lbl">Cidades</span>
+    </div>
+    <div class="cs-div"></div>
+    <div class="cs-item">
+      <span class="cs-val">37</span>
+      <span class="cs-lbl">Arestas</span>
+    </div>
+    <div class="cs-div"></div>
+    <div class="cs-item">
+      <span class="cs-val">18</span>
+      <span class="cs-lbl">Na MST</span>
+    </div>
+    <div class="cs-div"></div>
+    <div class="cs-item">
+      <span class="cs-val dim">19</span>
+      <span class="cs-lbl">Descart.</span>
+    </div>
+  </div>
+  <div class="card-legend">
+    <div class="card-legend-title">Legenda</div>
+    <div class="leg"><div class="leg-dot"></div> Cidade (vértice)</div>
+    <div class="leg"><div class="leg-line"></div> Aresta na MST</div>
+    <div class="leg"><div class="leg-dash"></div> Aresta descartada</div>
+  </div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="side-events">
+  <div class="side-events-header">
+    <span class="side-events-title">MST — Conexões</span>
+    <span class="side-events-count">18</span>
+  </div>
+  <div class="events-list" id="mstList"></div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer-bar">
+  <div class="footer-bar-header">
+    <span class="footer-bar-title">🐉 Todas as Arestas — Grafo Completo</span>
+    <div class="footer-bar-meta">
+      <div class="footer-tabs">
+        <button class="ftab active" onclick="renderFooter('all', this)">Todas (37)</button>
+        <button class="ftab" onclick="renderFooter('mst', this)">MST (18)</button>
+        <button class="ftab" onclick="renderFooter('disc', this)">Descartadas (19)</button>
+      </div>
+      <span class="footer-bar-hint">scroll →</span>
+    </div>
+  </div>
+  <div class="footer-scroll" id="footerScroll"></div>
+</div>
+
+<div class="attribution">WesterosNet · dados sintéticos · 2025</div>
+
+<!-- Dados injetados pelo main.py. type=application/json → linter não valida como JS -->
+<script type="application/json" id="dadosGrafo">[{"de": "The Crownlands", "para": "King's Landing", "km": 1.5, "mst": true}, {"de": "The Westerlands", "para": "Casterly Rock", "km": 1.9, "mst": true}, {"de": "Dorne", "para": "Sunspear", "km": 2.0, "mst": true}, {"de": "The Vale of Arryn", "para": "The Eyrie", "km": 2.1, "mst": true}, {"de": "The Reach", "para": "Highgarden", "km": 2.3, "mst": true}, {"de": "The North", "para": "Winterfell", "km": 2.4, "mst": true}, {"de": "The Westerlands", "para": "Riverrun", "km": 2.6, "mst": true}, {"de": "The Stormlands", "para": "Storm's End", "km": 2.7, "mst": true}, {"de": "The Riverlands", "para": "Harrenhal", "km": 2.8, "mst": true}, {"de": "The Crownlands", "para": "Harrenhal", "km": 2.9, "mst": true}, {"de": "The Riverlands", "para": "Riverrun", "km": 3.0, "mst": true}, {"de": "Winterfell", "para": "The Wall", "km": 3.2, "mst": true}, {"de": "Casterly Rock", "para": "Riverrun", "km": 3.4, "mst": false}, {"de": "The Stormlands", "para": "King's Landing", "km": 3.6, "mst": true}, {"de": "King's Landing", "para": "Harrenhal", "km": 3.7, "mst": false}, {"de": "The Eyrie", "para": "Harrenhal", "km": 3.9, "mst": true}, {"de": "The Reach", "para": "The Stormlands", "km": 4.1, "mst": true}, {"de": "The Riverlands", "para": "The Crownlands", "km": 4.2, "mst": false}, {"de": "The Vale of Arryn", "para": "King's Landing", "km": 4.4, "mst": false}, {"de": "The Riverlands", "para": "Winterfell", "km": 4.5, "mst": true}, {"de": "Dorne", "para": "Storm's End", "km": 4.6, "mst": true}, {"de": "The Vale of Arryn", "para": "The Riverlands", "km": 4.7, "mst": false}, {"de": "The Crownlands", "para": "The Stormlands", "km": 4.8, "mst": false}, {"de": "Casterly Rock", "para": "Highgarden", "km": 5.0, "mst": false}, {"de": "The Vale of Arryn", "para": "The Crownlands", "km": 5.2, "mst": false}, {"de": "The Stormlands", "para": "Dorne", "km": 5.3, "mst": false}, {"de": "Winterfell", "para": "Harrenhal", "km": 5.3, "mst": false}, {"de": "Dorne", "para": "Highgarden", "km": 5.5, "mst": false}, {"de": "The Riverlands", "para": "The Westerlands", "km": 5.6, "mst": false}, {"de": "The North", "para": "The Wall", "km": 5.8, "mst": false}, {"de": "The Reach", "para": "King's Landing", "km": 5.9, "mst": false}, {"de": "The North", "para": "The Riverlands", "km": 6.1, "mst": false}, {"de": "The Westerlands", "para": "The Iron Islands", "km": 6.3, "mst": true}, {"de": "The Reach", "para": "Dorne", "km": 6.7, "mst": false}, {"de": "The North", "para": "The Iron Islands", "km": 7.0, "mst": false}, {"de": "The Reach", "para": "Sunspear", "km": 7.2, "mst": false}, {"de": "The Iron Islands", "para": "The Wall", "km": 8.1, "mst": false}]</script>
+
+<script>
+/* ── THEME TOGGLE ── */
+function toggleTheme() {
+  var html = document.documentElement;
+  var isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  document.getElementById('toggleLabel').textContent = isDark ? 'MODO ESCURO' : 'MODO CLARO';
+}
+
+/* ── FOOTER & SIDE LIST ── */
+(function () {
+  // Lê os dados do <script type="application/json"> — sem placeholder dentro de JS
+  var todasArestas = JSON.parse(document.getElementById('dadosGrafo').textContent);
+
+  var mstEdges  = todasArestas.filter(function (a) { return a.mst === true; });
+  var discEdges = todasArestas.filter(function (a) { return a.mst === false; });
+  var allEdges  = todasArestas.slice().sort(function (a, b) { return a.km - b.km; });
+
+  function renderFooter(mode, btn) {
+    if (btn) {
+      var tabs = document.querySelectorAll('.ftab');
+      for (var i = 0; i < tabs.length; i++) {
+        tabs[i].classList.remove('active');
+      }
+      btn.classList.add('active');
+    }
+
+    var list;
+    if (mode === 'mst')  { list = mstEdges;  }
+    else if (mode === 'disc') { list = discEdges; }
+    else { list = allEdges; }
+
+    var container = document.getElementById('footerScroll');
+    container.innerHTML = '';
+
+    for (var j = 0; j < list.length; j++) {
+      var a = list[j];
+      var chip = document.createElement('div');
+      chip.className = 'aresta-chip' + (a.mst ? '' : ' discarded');
+      var numStr = String(j + 1);
+      while (numStr.length < 2) { numStr = '0' + numStr; }
+      chip.innerHTML =
+        '<div class="chip-num">#' + numStr + '</div>' +
+        '<span class="chip-tag' + (a.mst ? '' : ' disc') + '">' + (a.mst ? 'MST' : '---') + '</span>' +
+        '<div class="chip-cities">' + a.de + '<br><em class="chip-arrow">&#8596;</em> ' + a.para + '</div>' +
+        '<div class="chip-km' + (a.mst ? '' : ' disc') + '">' + a.km.toFixed(1) + ' km</div>';
+      container.appendChild(chip);
+    }
+  }
+
+  // Expõe para os botões inline do HTML
+  window.renderFooter = renderFooter;
+
+  function renderSideList() {
+    var list = document.getElementById('mstList');
+    for (var i = 0; i < mstEdges.length; i++) {
+      var a = mstEdges[i];
+      var item = document.createElement('div');
+      item.className = 'event-item';
+      var shortName = a.de.replace('The ', '');
+      item.innerHTML =
+        '<div class="event-top">' +
+          '<span class="event-dot" style="background:#00c8ff"></span>' +
+          '<span class="event-type">' + shortName + '</span>' +
+          '<span class="event-km">' + a.km.toFixed(1) + ' km</span>' +
+        '</div>' +
+        '<div class="event-sub">&#8596; ' + a.para + '</div>';
+      list.appendChild(item);
+    }
+  }
+
+  function init() {
+    var footer = document.getElementById('footerScroll');
+    var side   = document.getElementById('mstList');
+    if (!footer || !side) {
+      setTimeout(init, 100);
+      return;
+    }
+    renderFooter('all', null);
+    renderSideList();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+}());
+</script>
+
+</body>
+</html>
